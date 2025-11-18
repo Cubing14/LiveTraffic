@@ -93,7 +93,7 @@ const Incidents = () => {
     try {
       const { data, error } = await supabase
         .from('incidents')
-        .select('*')
+        .select('id, type, location, latitude, longitude, impact, description, status, reports, reported_by, reported_by_email, upvotes, downvotes, created_at')
         .eq('status', 'activo')
         .order('created_at', { ascending: false })
         .limit(10);
@@ -252,43 +252,20 @@ const Incidents = () => {
     }
     
     try {
-      // Verificar si ya votó
-      const { data: existingVote } = await supabase
+      // Insertar o actualizar voto
+      const { error: voteError } = await supabase
         .from('incident_votes')
-        .select('*')
-        .eq('incident_id', incidentId)
-        .eq('user_email', user.email)
-        .single();
+        .upsert({
+          incident_id: incidentId,
+          user_email: user.email,
+          vote_type: voteType
+        }, {
+          onConflict: 'incident_id,user_email'
+        });
       
-      if (existingVote) {
-        // Si ya votó lo mismo, no hacer nada
-        if (existingVote.vote_type === voteType) {
-          alert('Ya votaste en este incidente');
-          return;
-        }
-        
-        // Si votó diferente, actualizar voto
-        const { error } = await supabase
-          .from('incident_votes')
-          .update({ vote_type: voteType })
-          .eq('incident_id', incidentId)
-          .eq('user_email', user.email);
-          
-        if (error) throw error;
-      } else {
-        // Crear nuevo voto
-        const { error } = await supabase
-          .from('incident_votes')
-          .insert({
-            incident_id: incidentId,
-            user_email: user.email,
-            vote_type: voteType
-          });
-          
-        if (error) throw error;
-      }
+      if (voteError) throw voteError;
       
-      // Recalcular votos manualmente
+      // Recalcular votos
       const { data: votes } = await supabase
         .from('incident_votes')
         .select('vote_type')
@@ -297,7 +274,7 @@ const Incidents = () => {
       const upvotes = votes?.filter(v => v.vote_type === 'up').length || 0;
       const downvotes = votes?.filter(v => v.vote_type === 'down').length || 0;
       
-      // Actualizar contadores en incidents
+      // Actualizar contadores
       const { error: updateError } = await supabase
         .from('incidents')
         .update({ upvotes, downvotes })
@@ -305,10 +282,16 @@ const Incidents = () => {
       
       if (updateError) throw updateError;
       
-      await loadIncidents();
+      // Actualizar estado local inmediatamente
+      setIncidents(prev => prev.map(incident => 
+        incident.id === incidentId 
+          ? { ...incident, upvotes, downvotes }
+          : incident
+      ));
+      
     } catch (error) {
       console.error('Error voting:', error);
-      alert('Error al votar. Inténtalo de nuevo.');
+      alert('Error al votar');
     }
   };
 
