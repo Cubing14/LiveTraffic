@@ -134,9 +134,64 @@ const Profile = () => {
                   {user?.user_metadata?.nombre?.[0]?.toUpperCase() || user?.email?.[0]?.toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => {
+                  const input = document.createElement('input');
+                  input.type = 'file';
+                  input.accept = 'image/*';
+                  input.onchange = async (e) => {
+                    const file = (e.target as HTMLInputElement).files?.[0];
+                    if (file) {
+                      setLoading(true);
+                      try {
+                        // Subir imagen a Supabase Storage
+                        const fileExt = file.name.split('.').pop();
+                        const fileName = `${user?.id}.${fileExt}`;
+                        
+                        const { error: uploadError } = await supabase.storage
+                          .from('avatars')
+                          .upload(fileName, file, { upsert: true });
+                        
+                        if (uploadError) throw uploadError;
+                        
+                        // Obtener URL pública
+                        const { data } = supabase.storage
+                          .from('avatars')
+                          .getPublicUrl(fileName);
+                        
+                        // Actualizar perfil del usuario
+                        const { error: updateError } = await supabase.auth.updateUser({
+                          data: { avatar_url: data.publicUrl }
+                        });
+                        
+                        if (updateError) throw updateError;
+                        
+                        toast({
+                          title: "Foto actualizada",
+                          description: "Tu foto de perfil se cambió correctamente",
+                        });
+                        
+                        // Recargar página para mostrar nueva foto
+                        window.location.reload();
+                      } catch (error: any) {
+                        toast({
+                          title: "Error",
+                          description: error.message,
+                          variant: "destructive",
+                        });
+                      } finally {
+                        setLoading(false);
+                      }
+                    }
+                  };
+                  input.click();
+                }}
+                disabled={loading}
+              >
                 <Camera className="h-4 w-4 mr-2" />
-                Cambiar Foto
+                {loading ? "Subiendo..." : "Cambiar Foto"}
               </Button>
             </div>
 

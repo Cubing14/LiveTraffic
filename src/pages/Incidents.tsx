@@ -43,7 +43,8 @@ const Incidents = () => {
     severity: '',
     location: '',
     description: '',
-    coordinates: null as [number, number] | null
+    coordinates: null as [number, number] | null,
+    photo: null as File | null
   });
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
@@ -135,24 +136,56 @@ const Incidents = () => {
       user?.email?.split('@')[0] || 'Usuario Anónimo';
     
     try {
-      const { error } = await supabase
+      // Buscar incidente similar (mismo tipo y ubicación cercana)
+      const { data: existingIncidents } = await supabase
         .from('incidents')
-        .insert({
-          type: reportForm.type,
-          location: reportForm.location,
-          latitude: reportForm.coordinates?.[1] || 4.4389,
-          longitude: reportForm.coordinates?.[0] || -75.2322,
-          impact: reportForm.severity,
-          description: reportForm.description || `${getTypeText(reportForm.type)} reportado por usuario`,
-          status: 'activo',
-          reports: 1,
-          reported_by: userName,
-          reported_by_email: user?.email || 'anonimo@email.com'
-        });
+        .select('*')
+        .eq('type', reportForm.type)
+        .eq('status', 'activo')
+        .ilike('location', `%${reportForm.location.split(' ')[0]}%`);
 
-      if (error) throw error;
+      let incidentId;
+      
+      if (existingIncidents && existingIncidents.length > 0) {
+        // Agregar reporte al incidente existente
+        const existingIncident = existingIncidents[0];
+        incidentId = existingIncident.id;
+        
+        await supabase
+          .from('incidents')
+          .update({ reports: existingIncident.reports + 1 })
+          .eq('id', incidentId);
+          
+        await supabase
+          .from('incident_reports')
+          .insert({
+            incident_id: incidentId,
+            reported_by: userName,
+            reported_by_email: user?.email || 'anonimo@email.com'
+          });
+      } else {
+        // Crear nuevo incidente
+        const { data: newIncident, error } = await supabase
+          .from('incidents')
+          .insert({
+            type: reportForm.type,
+            location: reportForm.location,
+            latitude: reportForm.coordinates?.[1] || 4.4389,
+            longitude: reportForm.coordinates?.[0] || -75.2322,
+            impact: reportForm.severity,
+            description: reportForm.description || `${getTypeText(reportForm.type)} reportado por usuario`,
+            status: 'activo',
+            reports: 1,
+            reported_by: userName,
+            reported_by_email: user?.email || 'anonimo@email.com'
+          })
+          .select()
+          .single();
 
-      // Recargar incidentes
+        if (error) throw error;
+        incidentId = newIncident.id;
+      }
+
       await loadIncidents();
       
       setReportForm({
@@ -160,7 +193,8 @@ const Incidents = () => {
         severity: '',
         location: '',
         description: '',
-        coordinates: null
+        coordinates: null,
+        photo: null
       });
       
       setShowReport(false);
@@ -354,6 +388,40 @@ const Incidents = () => {
                 value={reportForm.description}
                 onChange={(e) => setReportForm(prev => ({...prev, description: e.target.value}))}
               />
+            </div>
+            <div className="space-y-2">
+              <Label>Foto (opcional)</Label>
+              <div className="flex gap-2">
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  className="flex-1"
+                  onClick={() => {
+                    const input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = 'image/*';
+                    input.capture = 'environment';
+                    input.onchange = (e) => {
+                      const file = (e.target as HTMLInputElement).files?.[0];
+                      if (file) setReportForm(prev => ({...prev, photo: file}));
+                    };
+                    input.click();
+                  }}
+                >
+                  <Camera className="w-4 h-4 mr-2" />
+                  {reportForm.photo ? 'Foto tomada ✓' : 'Tomar foto'}
+                </Button>
+                {reportForm.photo && (
+                  <Button 
+                    type="button" 
+                    variant="ghost" 
+                    size="sm"
+                    onClick={() => setReportForm(prev => ({...prev, photo: null}))}
+                  >
+                    ❌
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
           <div className="flex gap-2">
