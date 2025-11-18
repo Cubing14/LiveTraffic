@@ -164,4 +164,111 @@ All colors MUST be HSL.
     font-family: 'Montserrat', sans-serif;
     font-weight: 600;
   }
+
+  /* Mejoras de accesibilidad */
+  *:focus {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+
+  /* Reducción de movimiento para usuarios sensibles */
+  @media (prefers-reduced-motion: reduce) {
+    * {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* Alto contraste para mejor legibilidad */
+  @media (prefers-contrast: high) {
+    :root {
+      --border: 220 13% 60%;
+      --muted-foreground: 220 10% 30%;
+    }
+  }
+
+  /* Colores accesibles para daltonismo */
+  .color-safe-red {
+    background-color: #d73027; /* Rojo accesible */
+    border-left: 4px solid #8b0000; /* Borde para distinguir */
+  }
+
+  .color-safe-yellow {
+    background-color: #fee08b; /* Amarillo accesible */
+    border-left: 4px solid #d4a017; /* Borde para distinguir */
+  }
+
+  .color-safe-green {
+    background-color: #1a9850; /* Verde accesible */
+    border-left: 4px solid #0f5132; /* Borde para distinguir */
+  }
+
+  .color-safe-blue {
+    background-color: #4575b4; /* Azul accesible */
+    border-left: 4px solid #1e3a8a; /* Borde para distinguir */
+  }
+
+  /* Patrones para distinguir sin color */
+  .pattern-high::before {
+    content: '⚠️';
+    margin-right: 4px;
+  }
+
+  .pattern-medium::before {
+    content: '⚡';
+    margin-right: 4px;
+  }
+
+  .pattern-low::before {
+    content: 'ℹ️';
+    margin-right: 4px;
+  }
+
+  /* Soporte para safe area en dispositivos con notch */
+  .safe-area-inset-top {
+    padding-top: max(1rem, env(safe-area-inset-top));
+  }
+
+  .safe-area-inset-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+  /* Mejoras táctiles para móviles */
+  .touch-manipulation {
+    touch-action: manipulation;
+  }
+
+  /* Animaciones suaves */
+  .transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  /* Texto alternativo para lectores de pantalla */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  /* Anuncios para lectores de pantalla */
+  #sr-announcements {
+    position: absolute;
+    left: -10000px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+  }
+
+  /* Mejoras para navegación por teclado */
+  .keyboard-navigation:focus-within {
+    outline: 3px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
 }

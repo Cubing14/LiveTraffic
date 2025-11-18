@@ -342,16 +342,16 @@ const Incidents = () => {
           {incidents.map((incident) => {
             const IconComponent = getIncidentIcon(incident.type);
             return (
-              <Card key={incident.id} className={`border-l-4 ${
-                incident.impact === 'alto' ? 'border-l-red-500' :
-                incident.impact === 'medio' ? 'border-l-yellow-500' : 'border-l-blue-500'
-              } hover:shadow-md transition-shadow`}>
+              <Card key={incident.id} className={`border-l-4 hover:shadow-md transition-shadow ${
+                incident.impact === 'alto' ? 'border-l-red-500 color-safe-red' :
+                incident.impact === 'medio' ? 'border-l-yellow-500 color-safe-yellow' : 'border-l-blue-500 color-safe-blue'
+              }`}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        incident.impact === 'alto' ? 'bg-red-100' :
-                        incident.impact === 'medio' ? 'bg-yellow-100' : 'bg-blue-100'
+                        incident.impact === 'alto' ? 'bg-red-100 ring-2 ring-red-300' :
+                        incident.impact === 'medio' ? 'bg-yellow-100 ring-2 ring-yellow-300' : 'bg-blue-100 ring-2 ring-blue-300'
                       }`}>
                         <IconComponent className={`w-5 h-5 ${
                           incident.impact === 'alto' ? 'text-red-600' :
@@ -360,8 +360,19 @@ const Incidents = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">{getTypeText(incident.type)}</h3>
-                          <Badge variant={getIncidentColor(incident.impact) as any} className="text-xs">
+                          <h3 className={`font-semibold ${
+                            incident.impact === 'alto' ? 'pattern-high' :
+                            incident.impact === 'medio' ? 'pattern-medium' : 'pattern-low'
+                          }`}>
+                            {getTypeText(incident.type)}
+                          </h3>
+                          <Badge 
+                            variant={getIncidentColor(incident.impact) as any} 
+                            className={`text-xs font-bold ${
+                              incident.impact === 'alto' ? 'bg-red-600 text-white' :
+                              incident.impact === 'medio' ? 'bg-yellow-600 text-white' : 'bg-blue-600 text-white'
+                            }`}
+                          >
                             {incident.impact.toUpperCase()}
                           </Badge>
                         </div>
@@ -421,27 +432,37 @@ const Incidents = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex gap-1">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleVote(incident.id, 'up')}
-                          className="text-green-600 hover:bg-green-50"
+                          className="text-green-600 hover:bg-green-50 focus:bg-green-50 focus:ring-2 focus:ring-green-200 transition-smooth"
+                          aria-label={`Votar positivo. Actualmente ${incident.upvotes || 0} votos positivos`}
                         >
-                          👍 {incident.upvotes || 0}
+                          <span aria-hidden="true">👍</span>
+                          <span className="ml-1 font-semibold">{incident.upvotes || 0}</span>
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleVote(incident.id, 'down')}
-                          className="text-red-600 hover:bg-red-50"
+                          className="text-red-600 hover:bg-red-50 focus:bg-red-50 focus:ring-2 focus:ring-red-200 transition-smooth"
+                          aria-label={`Votar negativo. Actualmente ${incident.downvotes || 0} votos negativos`}
                         >
-                          👎 {incident.downvotes || 0}
+                          <span aria-hidden="true">👎</span>
+                          <span className="ml-1 font-semibold">{incident.downvotes || 0}</span>
                         </Button>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <MapPin className="h-4 w-4" />
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="hover:bg-blue-50 focus:bg-blue-50 focus:ring-2 focus:ring-blue-200"
+                        aria-label="Ver ubicación en el mapa"
+                      >
+                        <MapPin className="h-4 w-4" aria-hidden="true" />
+                        <span className="sr-only">Ver en mapa</span>
                       </Button>
                     </div>
                   </div>
