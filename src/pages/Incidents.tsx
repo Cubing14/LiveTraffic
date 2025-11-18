@@ -11,6 +11,7 @@ import BottomNav from "@/components/BottomNav";
 import TopHeader from "@/components/TopHeader";
 import PlaceSearch from "@/components/PlaceSearch";
 import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Incident {
   id: string;
@@ -44,125 +45,56 @@ const Incidents = () => {
     description: '',
     coordinates: null as [number, number] | null
   });
-  const [incidents, setIncidents] = useState<Incident[]>([
-    {
-      id: "inc-1",
-      type: "choque",
-      location: "Av. Ambalá - Universidad de Ibagué",
-      coordinates: [-75.200074, 4.449202],
-      impact: "alto",
-      timeAgo: 15,
-      description: "Choque entre dos vehículos, tránsito lento",
-      status: "activo",
-      reports: 12,
-      reportedBy: "Carlos M.",
-      reportedByEmail: "carlos.m@email.com",
-      userReports: [
-        { userName: "Carlos M.", userEmail: "carlos.m@email.com", timeAgo: 15 },
-        { userName: "Ana L.", userEmail: "ana.l@email.com", timeAgo: 10 }
-      ]
-    },
-    {
-      id: "inc-2",
-      type: "obra",
-      location: "Carrera 5 - Centro Comercial Aqua",
-      coordinates: [-75.204285, 4.440518],
-      impact: "medio",
-      timeAgo: 45,
-      description: "Trabajos de mantenimiento vial",
-      status: "activo",
-      reports: 8,
-      reportedBy: "Maria S.",
-      reportedByEmail: "maria.s@email.com",
-      userReports: [
-        { userName: "Maria S.", userEmail: "maria.s@email.com", timeAgo: 45 }
-      ]
-    },
-    {
-      id: "inc-3",
-      type: "congestion",
-      location: "Terminal de Transportes",
-      coordinates: [-75.234738, 4.437023],
-      impact: "alto",
-      timeAgo: 5,
-      description: "Congestión por hora pico",
-      status: "activo",
-      reports: 25,
-      reportedBy: "Sofia T.",
-      reportedByEmail: "sofia.t@email.com",
-      userReports: [
-        { userName: "Sofia T.", userEmail: "sofia.t@email.com", timeAgo: 5 },
-        { userName: "Diego V.", userEmail: "diego.v@email.com", timeAgo: 3 }
-      ]
-    },
-    {
-      id: "inc-4",
-      type: "cierre",
-      location: "Av. 19 - Centro Comercial La Quinta",
-      coordinates: [-75.223067, 4.439624],
-      impact: "medio",
-      timeAgo: 30,
-      description: "Cierre parcial por evento",
-      status: "activo",
-      reports: 6,
-      reportedBy: "Luis R.",
-      reportedByEmail: "luis.r@email.com",
-      userReports: [
-        { userName: "Luis R.", userEmail: "luis.r@email.com", timeAgo: 30 }
-      ]
-    }
-  ]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
 
-  // Simular actualizaciones en tiempo real
+  // Cargar incidentes desde Supabase
   useEffect(() => {
+    loadIncidents();
+    
+    // Actualizar cada minuto
     const interval = setInterval(() => {
-      setIncidents(prevIncidents => 
-        prevIncidents.map(incident => ({
-          ...incident,
-          timeAgo: incident.timeAgo + 1,
-          // Simular nuevos reportes ocasionalmente
-          reports: Math.random() > 0.9 ? incident.reports + 1 : incident.reports
-        }))
-      );
+      loadIncidents();
       setLastUpdate(new Date());
-    }, 60000); // Actualizar cada minuto
+    }, 60000);
 
     return () => clearInterval(interval);
   }, []);
 
-  // Simular nuevos incidentes ocasionalmente
-  useEffect(() => {
-    const interval = setInterval(() => {
-      if (Math.random() > 0.8) { // 20% de probabilidad
-        const randomUsers = ['Pedro G.', 'Laura P.', 'Diego V.', 'Carmen R.', 'Miguel A.'];
-        const randomUser = randomUsers[Math.floor(Math.random() * randomUsers.length)];
-        
-        const newIncident: Incident = {
-          id: `inc-${Date.now()}`,
-          type: ['choque', 'obra', 'congestion'][Math.floor(Math.random() * 3)] as any,
-          location: "Nueva ubicación",
-          coordinates: [-75.2 + Math.random() * 0.05, 4.43 + Math.random() * 0.02],
-          impact: ['bajo', 'medio', 'alto'][Math.floor(Math.random() * 3)] as any,
-          timeAgo: 0,
-          description: "Nuevo incidente reportado",
-          status: "activo",
-          reports: 1,
-          reportedBy: randomUser,
-          reportedByEmail: `${randomUser.toLowerCase().replace(' ', '.')}@email.com`,
-          userReports: [
-            {
-              userName: randomUser,
-              userEmail: `${randomUser.toLowerCase().replace(' ', '.')}@email.com`,
-              timeAgo: 0
-            }
-          ]
-        };
-        setIncidents(prev => [newIncident, ...prev.slice(0, 4)]); // Mantener solo 5 incidentes
-      }
-    }, 120000); // Cada 2 minutos
+  const loadIncidents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('incidents')
+        .select('*')
+        .eq('status', 'activo')
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-    return () => clearInterval(interval);
-  }, []);
+      if (error) throw error;
+
+      const formattedIncidents: Incident[] = data?.map(incident => ({
+        id: incident.id,
+        type: incident.type,
+        location: incident.location,
+        coordinates: [incident.longitude, incident.latitude],
+        impact: incident.impact,
+        timeAgo: Math.floor((Date.now() - new Date(incident.created_at).getTime()) / 60000),
+        description: incident.description,
+        status: incident.status,
+        reports: incident.reports || 1,
+        reportedBy: incident.reported_by,
+        reportedByEmail: incident.reported_by_email,
+        userReports: [{
+          userName: incident.reported_by,
+          userEmail: incident.reported_by_email,
+          timeAgo: Math.floor((Date.now() - new Date(incident.created_at).getTime()) / 60000)
+        }]
+      })) || [];
+
+      setIncidents(formattedIncidents);
+    } catch (error) {
+      console.error('Error loading incidents:', error);
+    }
+  };
 
   const getIncidentIcon = (type: string) => {
     switch (type) {
@@ -193,52 +125,49 @@ const Incidents = () => {
     }
   };
 
-  const handleSubmitReport = () => {
+  const handleSubmitReport = async () => {
     if (!reportForm.type || !reportForm.severity || !reportForm.location) {
-      return; // Validación básica
+      return;
     }
 
-    // Obtener nombre del usuario
     const userName = user?.user_metadata?.nombre ? 
       `${user.user_metadata.nombre} ${user.user_metadata.apellidos?.[0] || ''}.` : 
       user?.email?.split('@')[0] || 'Usuario Anónimo';
     
-    // Crear nuevo incidente
-    const newIncident: Incident = {
-      id: `user-${Date.now()}`,
-      type: reportForm.type as any,
-      location: reportForm.location,
-      coordinates: reportForm.coordinates || [-75.2322, 4.4389],
-      impact: reportForm.severity as any,
-      timeAgo: 0,
-      description: reportForm.description || `${getTypeText(reportForm.type)} reportado por usuario`,
-      status: 'activo',
-      reports: 1,
-      reportedBy: userName,
-      reportedByEmail: user?.email || 'anonimo@email.com',
-      userReports: [
-        {
-          userName: userName,
-          userEmail: user?.email || 'anonimo@email.com',
-          timeAgo: 0
-        }
-      ]
-    };
+    try {
+      const { error } = await supabase
+        .from('incidents')
+        .insert({
+          type: reportForm.type,
+          location: reportForm.location,
+          latitude: reportForm.coordinates?.[1] || 4.4389,
+          longitude: reportForm.coordinates?.[0] || -75.2322,
+          impact: reportForm.severity,
+          description: reportForm.description || `${getTypeText(reportForm.type)} reportado por usuario`,
+          status: 'activo',
+          reports: 1,
+          reported_by: userName,
+          reported_by_email: user?.email || 'anonimo@email.com'
+        });
 
-    // Agregar al inicio de la lista
-    setIncidents(prev => [newIncident, ...prev]);
-    
-    // Limpiar formulario
-    setReportForm({
-      type: '',
-      severity: '',
-      location: '',
-      description: '',
-      coordinates: null
-    });
-    
-    setShowReport(false);
-    setShowSuccess(true);
+      if (error) throw error;
+
+      // Recargar incidentes
+      await loadIncidents();
+      
+      setReportForm({
+        type: '',
+        severity: '',
+        location: '',
+        description: '',
+        coordinates: null
+      });
+      
+      setShowReport(false);
+      setShowSuccess(true);
+    } catch (error) {
+      console.error('Error creating incident:', error);
+    }
   };
 
   const handleLocationSelect = (place: any) => {

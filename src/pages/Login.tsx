@@ -14,6 +14,45 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showResendConfirmation, setShowResendConfirmation] = useState(false);
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      toast({
+        title: "Error",
+        description: "Ingresa tu email para reenviar la confirmación",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+      });
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "¡Email reenviado!",
+          description: "Revisa tu bandeja de entrada para confirmar tu cuenta",
+        });
+        setShowResendConfirmation(false);
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "No se pudo reenviar el email",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,9 +65,21 @@ const Login = () => {
       });
 
       if (error) {
+        let errorMessage = error.message;
+        
+        // Mensajes más claros para errores comunes
+        if (error.message.includes('Email not confirmed')) {
+          errorMessage = "Debes confirmar tu email antes de iniciar sesión. Revisa tu bandeja de entrada.";
+          setShowResendConfirmation(true);
+        } else if (error.message.includes('Invalid login credentials')) {
+          errorMessage = "Email o contraseña incorrectos. Verifica tus datos.";
+        } else if (error.message.includes('Email link is invalid')) {
+          errorMessage = "El enlace de confirmación ha expirado. Solicita uno nuevo.";
+        }
+        
         toast({
           title: "Error al iniciar sesión",
-          description: error.message,
+          description: errorMessage,
           variant: "destructive",
         });
       } else {
@@ -96,6 +147,15 @@ const Login = () => {
                 <Link to="/recovery" className="text-sm text-primary hover:underline block">
                   ¿Olvidaste tu contraseña?
                 </Link>
+                {showResendConfirmation && (
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    className="text-sm text-orange-600 hover:underline block"
+                  >
+                    📧 Reenviar email de confirmación
+                  </button>
+                )}
                 <p className="text-sm text-muted-foreground">
                   ¿No tienes cuenta?{" "}
                   <Link to="/register" className="text-primary hover:underline font-medium">
