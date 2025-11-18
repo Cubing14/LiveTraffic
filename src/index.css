@@ -271,4 +271,65 @@ All colors MUST be HSL.
     outline: 3px solid hsl(var(--primary));
     outline-offset: 2px;
   }
+
+  /* Control de tamaño de fuente */
+  [data-font-size="small"] {
+    font-size: 20px;
+  }
+
+  [data-font-size="small"] h1, [data-font-size="small"] .title {
+    font-size: 28px;
+  }
+
+  [data-font-size="small"] h2, [data-font-size="small"] h3, [data-font-size="small"] .subtitle {
+    font-size: 26px;
+  }
+
+  [data-font-size="small"] .text-sm {
+    font-size: 16px !important;
+  }
+
+  [data-font-size="small"] .text-xs {
+    font-size: 14px !important;
+  }
+
+  [data-font-size="large"] {
+    font-size: 28px;
+  }
+
+  [data-font-size="large"] h1, [data-font-size="large"] .title {
+    font-size: 36px;
+  }
+
+  [data-font-size="large"] h2, [data-font-size="large"] h3, [data-font-size="large"] .subtitle {
+    font-size: 34px;
+  }
+
+  [data-font-size="large"] .text-sm {
+    font-size: 24px !important;
+  }
+
+  [data-font-size="large"] .text-xs {
+    font-size: 22px !important;
+  }
+
+  [data-font-size="extra-large"] {
+    font-size: 32px;
+  }
+
+  [data-font-size="extra-large"] h1, [data-font-size="extra-large"] .title {
+    font-size: 40px;
+  }
+
+  [data-font-size="extra-large"] h2, [data-font-size="extra-large"] h3, [data-font-size="extra-large"] .subtitle {
+    font-size: 38px;
+  }
+
+  [data-font-size="extra-large"] .text-sm {
+    font-size: 28px !important;
+  }
+
+  [data-font-size="extra-large"] .text-xs {
+    font-size: 26px !important;
+  }
 }
