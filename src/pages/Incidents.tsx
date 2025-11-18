@@ -12,6 +12,8 @@ import TopHeader from "@/components/TopHeader";
 import PlaceSearch from "@/components/PlaceSearch";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
+import { useGeolocation } from "@/hooks/useGeolocation";
+import { requestNotificationPermission, notifyNearbyIncident } from "@/services/notifications";
 
 interface Incident {
   id: string;
@@ -25,6 +27,8 @@ interface Incident {
   reports: number;
   reportedBy: string;
   reportedByEmail: string;
+  upvotes?: number;
+  downvotes?: number;
   userReports: Array<{
     userName: string;
     userEmail: string;
@@ -34,6 +38,7 @@ interface Incident {
 
 const Incidents = () => {
   const { user } = useAuth();
+  const location = useGeolocation();
   const [activeTab, setActiveTab] = useState("incidents");
   const [showReport, setShowReport] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -48,6 +53,11 @@ const Incidents = () => {
   });
   const [incidents, setIncidents] = useState<Incident[]>([]);
 
+  // Solicitar permisos de notificación al cargar
+  useEffect(() => {
+    requestNotificationPermission();
+  }, []);
+
   // Cargar incidentes desde Supabase
   useEffect(() => {
     loadIncidents();
@@ -60,6 +70,24 @@ const Incidents = () => {
 
     return () => clearInterval(interval);
   }, []);
+
+  // Notificar incidentes cercanos
+  useEffect(() => {
+    if (location.latitude && location.longitude && incidents.length > 0) {
+      incidents.forEach(incident => {
+        const distance = calculateDistance(
+          location.latitude!,
+          location.longitude!,
+          incident.coordinates[1],
+          incident.coordinates[0]
+        );
+        
+        if (distance < 2 && incident.timeAgo < 5) { // Menos de 2km y menos de 5 min
+          notifyNearbyIncident(incident, distance);
+        }
+      });
+    }
+  }, [location, incidents]);
 
   const loadIncidents = async () => {
     try {
@@ -84,6 +112,8 @@ const Incidents = () => {
         reports: incident.reports || 1,
         reportedBy: incident.reported_by,
         reportedByEmail: incident.reported_by_email,
+        upvotes: incident.upvotes || 0,
+        downvotes: incident.downvotes || 0,
         userReports: [{
           userName: incident.reported_by,
           userEmail: incident.reported_by_email,
@@ -204,6 +234,45 @@ const Incidents = () => {
     }
   };
 
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371; // Radio de la Tierra en km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const handleVote = async (incidentId: string, voteType: 'up' | 'down') => {
+    if (!user?.email) return;
+    
+    try {
+      const { error } = await supabase
+        .from('incident_votes')
+        .upsert({
+          incident_id: incidentId,
+          user_email: user.email,
+          vote_type: voteType
+        });
+      
+      if (error) throw error;
+      
+      // Actualizar contador en la tabla incidents
+      const { error: updateError } = await supabase.rpc(
+        voteType === 'up' ? 'increment_upvotes' : 'increment_downvotes',
+        { incident_id: incidentId }
+      );
+      
+      if (updateError) throw updateError;
+      
+      await loadIncidents();
+    } catch (error) {
+      console.error('Error voting:', error);
+    }
+  };
+
   const handleLocationSelect = (place: any) => {
     setReportForm(prev => ({
       ...prev,
@@ -275,6 +344,19 @@ const Incidents = () => {
                             <AlertTriangle className="w-3 h-3" />
                             <span>{incident.reports} reportes</span>
                           </div>
+                          {location.latitude && location.longitude && (
+                            <div className="flex items-center gap-1">
+                              <MapPin className="w-3 h-3" />
+                              <span>
+                                {calculateDistance(
+                                  location.latitude,
+                                  location.longitude,
+                                  incident.coordinates[1],
+                                  incident.coordinates[0]
+                                ).toFixed(1)}km
+                              </span>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-2 text-xs mb-2">
                           <div className="flex items-center gap-1 text-blue-600">
@@ -302,9 +384,29 @@ const Incidents = () => {
                         )}
                       </div>
                     </div>
-                    <Button variant="ghost" size="sm">
-                      <MapPin className="h-4 w-4" />
-                    </Button>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleVote(incident.id, 'up')}
+                          className="text-green-600 hover:bg-green-50"
+                        >
+                          👍 {incident.upvotes || 0}
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => handleVote(incident.id, 'down')}
+                          className="text-red-600 hover:bg-red-50"
+                        >
+                          👎 {incident.downvotes || 0}
+                        </Button>
+                      </div>
+                      <Button variant="ghost" size="sm">
+                        <MapPin className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

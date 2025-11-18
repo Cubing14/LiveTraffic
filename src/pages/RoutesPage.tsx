@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { MapPin, Clock, TrendingUp } from "lucide-react";
+import { MapPin, Clock, TrendingUp, Navigation, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +30,15 @@ const Routes = () => {
 
   // Rutas alternativas
   const [routes, setRoutes] = useState<any[]>([]);
+  const [selectedRoute, setSelectedRoute] = useState<any>(null);
+  const [navigationSteps, setNavigationSteps] = useState<any[]>([]);
+  const [showNavigation, setShowNavigation] = useState(false);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [currentStep, setCurrentStep] = useState(0);
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
+  const userMarker = useRef<mapboxgl.Marker | null>(null);
+  const [simulationMode, setSimulationMode] = useState(false);
+  const simulationInterval = useRef<NodeJS.Timeout | null>(null);
 
   // Mapa
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -54,6 +63,48 @@ const Routes = () => {
 
     map.current.addControl(new mapboxgl.NavigationControl());
   }, []);
+
+  // ============================
+  // SEGUIMIENTO GPS EN TIEMPO REAL
+  // ============================
+  useEffect(() => {
+    if (!isNavigating) return;
+
+    if (simulationMode) {
+      // Modo simulación: seguir la ruta automáticamente
+      startSimulation();
+    } else {
+      // Modo GPS real
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const newLocation: [number, number] = [
+            position.coords.longitude,
+            position.coords.latitude
+          ];
+          
+          updateUserLocation(newLocation);
+        },
+        (error) => {
+          console.error('Error GPS:', error);
+          // Si falla GPS, activar modo simulación
+          setSimulationMode(true);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 5000,
+          maximumAge: 1000
+        }
+      );
+
+      return () => navigator.geolocation.clearWatch(watchId);
+    }
+
+    return () => {
+      if (simulationInterval.current) {
+        clearInterval(simulationInterval.current);
+      }
+    };
+  }, [isNavigating, simulationMode, selectedRoute]);
 
   // ============================
   // AUTOCOMPLETE
@@ -188,6 +239,163 @@ const Routes = () => {
   };
 
   // ============================
+  // SELECCIONAR RUTA Y NAVEGACIÓN
+  // ============================
+  const selectRoute = (route: any, index: number) => {
+    setSelectedRoute(route);
+    setNavigationSteps(route.legs[0]?.steps || []);
+    setShowNavigation(true);
+    setCurrentStep(0);
+    
+    // Resaltar ruta seleccionada en el mapa
+    if (map.current) {
+      routes.forEach((_, i) => {
+        const layerId = `route-${i}`;
+        if (map.current!.getLayer(layerId)) {
+          map.current!.setPaintProperty(layerId, 'line-color', i === index ? '#2563eb' : '#9ca3af');
+          map.current!.setPaintProperty(layerId, 'line-width', i === index ? 6 : 3);
+        }
+      });
+    }
+  };
+
+  const updateUserLocation = (newLocation: [number, number]) => {
+    setUserLocation(newLocation);
+    
+    if (map.current) {
+      // Actualizar marcador del usuario
+      if (userMarker.current) {
+        userMarker.current.setLngLat(newLocation);
+      } else {
+        userMarker.current = new mapboxgl.Marker({ 
+          color: '#2563eb',
+          scale: 1.2
+        })
+        .setLngLat(newLocation)
+        .addTo(map.current);
+      }
+      
+      // Centrar mapa en usuario
+      map.current.easeTo({
+        center: newLocation,
+        zoom: 17,
+        duration: 1000
+      });
+      
+      // Calcular paso actual basado en distancia
+      updateCurrentStep(newLocation);
+    }
+  };
+
+  const startSimulation = () => {
+    if (!selectedRoute?.geometry?.coordinates) return;
+    
+    const routeCoords = selectedRoute.geometry.coordinates;
+    let coordIndex = 0;
+    
+    simulationInterval.current = setInterval(() => {
+      if (coordIndex >= routeCoords.length) {
+        // Llegó al destino
+        if (simulationInterval.current) {
+          clearInterval(simulationInterval.current);
+        }
+        alert('¡Has llegado a tu destino!');
+        stopNavigation();
+        return;
+      }
+      
+      const currentCoord = routeCoords[coordIndex];
+      updateUserLocation([currentCoord[0], currentCoord[1]]);
+      
+      coordIndex += Math.max(1, Math.floor(routeCoords.length / 50)); // Avanzar más rápido
+    }, 2000); // Cada 2 segundos
+  };
+
+  const startNavigation = () => {
+    setIsNavigating(true);
+    setShowNavigation(false);
+    
+    // Preguntar si quiere modo simulación
+    const useSimulation = confirm(
+      '¿Quieres usar modo simulación para probar la navegación?\n\n' +
+      'SÍ = Simulación automática\n' +
+      'NO = GPS real'
+    );
+    
+    setSimulationMode(useSimulation);
+    
+    if (map.current) {
+      map.current.setStyle('mapbox://styles/mapbox/navigation-day-v1');
+    }
+  };
+
+  const stopNavigation = () => {
+    setIsNavigating(false);
+    setSimulationMode(false);
+    setCurrentStep(0);
+    
+    // Detener simulación
+    if (simulationInterval.current) {
+      clearInterval(simulationInterval.current);
+      simulationInterval.current = null;
+    }
+    
+    // Remover marcador del usuario
+    if (userMarker.current) {
+      userMarker.current.remove();
+      userMarker.current = null;
+    }
+    
+    // Volver a vista normal
+    if (map.current) {
+      map.current.easeTo({
+        bearing: 0,
+        pitch: 0,
+        zoom: 13
+      });
+    }
+  };
+
+  const updateCurrentStep = (userPos: [number, number]) => {
+    if (!navigationSteps.length) return;
+    
+    // Calcular distancia al siguiente paso
+    const nextStep = navigationSteps[currentStep];
+    if (!nextStep?.maneuver?.location) return;
+    
+    const stepLocation = nextStep.maneuver.location;
+    const distance = calculateDistance(
+      userPos[1], userPos[0],
+      stepLocation[1], stepLocation[0]
+    );
+    
+    // Si está cerca del paso actual (< 50m), avanzar al siguiente
+    if (distance < 0.05 && currentStep < navigationSteps.length - 1) {
+      setCurrentStep(prev => prev + 1);
+    }
+  };
+
+  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c;
+  };
+
+  const formatInstruction = (instruction: string) => {
+    return instruction
+      .replace(/Continue/g, 'Continúa')
+      .replace(/Turn right/g, 'Gira a la derecha')
+      .replace(/Turn left/g, 'Gira a la izquierda')
+      .replace(/Head/g, 'Dirígete')
+      .replace(/Arrive/g, 'Llega');
+  };
+
+  // ============================
   // MANEJAR SUBMIT
   // ============================
   const handleCalculate = async () => {
@@ -277,18 +485,148 @@ const Routes = () => {
                       </div>
                     </div>
 
-                    <Button size="sm">Seleccionar</Button>
+                    <Button 
+                      size="sm"
+                      onClick={() => selectRoute(r, i)}
+                    >
+                      Seleccionar
+                    </Button>
                   </div>
                 </Card>
               ))}
             </CardContent>
           </Card>
         )}
+
+        {/* NAVEGACIÓN PASO A PASO */}
+        {showNavigation && selectedRoute && (
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Navigation className="w-5 h-5" />
+                  Navegación
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setShowNavigation(false)}
+                >
+                  ✕
+                </Button>
+              </div>
+            </CardHeader>
+
+            <CardContent>
+              <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                <div className="flex items-center gap-2 text-blue-800">
+                  <Clock className="w-4 h-4" />
+                  <span className="font-semibold">
+                    {(selectedRoute.duration / 60).toFixed(0)} min
+                  </span>
+                  <span className="text-blue-600">•</span>
+                  <span>{(selectedRoute.distance / 1000).toFixed(1)} km</span>
+                </div>
+              </div>
+
+              <div className="space-y-3 max-h-60 overflow-y-auto">
+                {navigationSteps.map((step: any, index: number) => (
+                  <div key={index} className="flex items-start gap-3 p-2 rounded border">
+                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
+                      <span className="text-xs font-bold text-blue-600">
+                        {index + 1}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">
+                        {formatInstruction(step.maneuver?.instruction || 'Continúa')}
+                      </p>
+                      {step.name && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          en {step.name}
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-blue-600">
+                          {(step.distance / 1000).toFixed(1)} km
+                        </span>
+                        <ArrowRight className="w-3 h-3 text-muted-foreground" />
+                        <span className="text-xs text-muted-foreground">
+                          {(step.duration / 60).toFixed(0)} min
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Button 
+                className="w-full mt-4" 
+                size="lg"
+                onClick={startNavigation}
+              >
+                <Navigation className="w-4 h-4 mr-2" />
+                Iniciar Navegación GPS
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
+
+      {/* NAVEGACIÓN EN TIEMPO REAL */}
+      {isNavigating && (
+        <div className="fixed top-16 left-0 right-0 z-50 bg-white shadow-lg border-b">
+          <div className="p-4">
+            {simulationMode && (
+              <div className="bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded mb-2 text-center">
+                🎮 MODO SIMULACIÓN - Navegación automática
+              </div>
+            )}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  simulationMode ? 'bg-orange-500' : 'bg-blue-500'
+                }`}>
+                  <Navigation className="w-4 h-4 text-white" />
+                </div>
+                <span className="font-semibold text-lg">
+                  {navigationSteps[currentStep] ? 
+                    formatInstruction(navigationSteps[currentStep].maneuver?.instruction || 'Continúa') :
+                    'Llegando al destino'
+                  }
+                </span>
+              </div>
+              <Button 
+                variant="ghost" 
+                size="sm"
+                onClick={stopNavigation}
+                className="text-red-600"
+              >
+                Detener
+              </Button>
+            </div>
+            
+            {navigationSteps[currentStep] && (
+              <div className="text-sm text-muted-foreground">
+                {navigationSteps[currentStep].name && (
+                  <p>en {navigationSteps[currentStep].name}</p>
+                )}
+                <div className="flex items-center gap-4 mt-1">
+                  <span>{(navigationSteps[currentStep].distance / 1000).toFixed(1)} km</span>
+                  <span>•</span>
+                  <span>Paso {currentStep + 1} de {navigationSteps.length}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       <div
         ref={mapContainer}
-        className="w-full h-[300px] rounded-lg shadow"
+        className={`w-full rounded-lg shadow ${
+          isNavigating ? 'h-[calc(100vh-200px)] fixed top-32 left-0 right-0 z-40' : 'h-[300px]'
+        }`}
       />
 
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
