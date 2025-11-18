@@ -1,8 +1,5 @@
-import { Map, Route, TrafficCone, AlertTriangle, User, LogOut } from "lucide-react";
+import { Map, Route, TrafficCone, AlertTriangle } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useAuth } from "@/hooks/useAuth";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface BottomNavProps {
@@ -11,17 +8,6 @@ interface BottomNavProps {
 }
 
 const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => {
-  const { signOut, user } = useAuth();
-  const { toast } = useToast();
-
-  const handleLogout = async () => {
-    await signOut();
-    toast({
-      title: "Sesión cerrada",
-      description: "Has cerrado sesión correctamente",
-    });
-  };
-
   const navItems = [
     { id: "map", label: "Mapa", icon: Map, path: "/map" },
     { id: "routes", label: "Rutas", icon: Route, path: "/routes" },
@@ -31,7 +17,7 @@ const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => {
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-card border-t border-border shadow-lg">
-      <div className="grid grid-cols-5">
+      <div className="grid grid-cols-4">
         {navItems.map((item) => (
           <NavLink
             key={item.id}
@@ -47,14 +33,6 @@ const BottomNav = ({ activeTab, setActiveTab }: BottomNavProps) => {
             <span className="text-xs">{item.label}</span>
           </NavLink>
         ))}
-        <Button
-          variant="ghost"
-          onClick={handleLogout}
-          className="flex flex-col items-center justify-center py-3 px-2 h-auto hover:bg-accent/50"
-        >
-          <LogOut className="w-5 h-5 mb-1" />
-          <span className="text-xs">Salir</span>
-        </Button>
       </div>
     </nav>
   );

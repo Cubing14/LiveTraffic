@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import BottomNav from "@/components/BottomNav";
+import TopHeader from "@/components/TopHeader";
+import PlaceSearch from "@/components/PlaceSearch";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
@@ -33,7 +35,7 @@ const Routes = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
 
-  const token = "pk.eyJ1IjoibXByYzMyMCIsImEiOiJjbWkya3B6MDcxNjM5MmlvZ2Zic2MwZnRrIn0.Yj696HtAQzAPaRXRlFHesQ";
+  const token = import.meta.env.VITE_MAPBOX_TOKEN;
 
   // ============================
   // INICIALIZAR MAPA
@@ -106,15 +108,20 @@ const Routes = () => {
   const drawRoute = async (start: [number, number], end: [number, number]) => {
     if (!map.current) return;
 
-    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&alternatives=true&overview=full&access_token=${token}`;
+    console.log('Calculando ruta desde:', start, 'hasta:', end);
 
-    const res = await fetch(url);
-    const data = await res.json();
+    const url = `https://api.mapbox.com/directions/v5/mapbox/driving/${start[0]},${start[1]};${end[0]},${end[1]}?geometries=geojson&alternatives=true&overview=full&steps=true&access_token=${token}`;
 
-    if (!data.routes || data.routes.length === 0) {
-      alert("No se encontraron rutas.");
-      return;
-    }
+    try {
+      const res = await fetch(url);
+      const data = await res.json();
+      
+      console.log('Respuesta de Mapbox:', data);
+
+      if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+        alert(`Error: ${data.message || 'No se encontraron rutas'}`);
+        return;
+      }
 
     // Guardar rutas alternativas para la UI
     setRoutes(data.routes);
@@ -167,9 +174,17 @@ const Routes = () => {
 
     map.current.fitBounds(bounds, { padding: 40 });
 
+    // Limpiar marcadores anteriores
+    document.querySelectorAll('.mapboxgl-marker').forEach(marker => marker.remove());
+    
     // Marcadores
     new mapboxgl.Marker({ color: "green" }).setLngLat(start as mapboxgl.LngLatLike).addTo(map.current);
     new mapboxgl.Marker({ color: "red" }).setLngLat(end as mapboxgl.LngLatLike).addTo(map.current);
+    
+    } catch (error) {
+      console.error('Error calculando ruta:', error);
+      alert('Error al calcular la ruta');
+    }
   };
 
   // ============================
@@ -182,6 +197,9 @@ const Routes = () => {
       return;
     }
 
+    console.log('Origen seleccionado:', origin, originCoords);
+    console.log('Destino seleccionado:', destination, destCoords);
+    
     drawRoute(originCoords, destCoords);
   };
 
@@ -189,12 +207,8 @@ const Routes = () => {
   // RENDER
   // ============================
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* HEADER */}
-      <header className="bg-primary text-primary-foreground p-4 shadow-md">
-        <h1 className="text-2xl font-bold">Rutas</h1>
-        <p className="text-sm opacity-90">Planifica tu trayecto</p>
-      </header>
+    <div className="min-h-screen bg-background pb-20 pt-16">
+      <TopHeader />
 
       <div className="p-4 space-y-4">
         {/* FORMULARIO */}
@@ -205,71 +219,29 @@ const Routes = () => {
 
           <CardContent className="space-y-4">
             {/* ORIGEN */}
-            <div className="relative">
+            <div>
               <Label>Tu ubicación</Label>
-              <Input
+              <PlaceSearch 
                 value={origin}
-                onChange={(e) => {
-                  setOrigin(e.target.value);
-                  // 🔥 Limpiar coordenadas si el usuario cambia el texto
-                  setOriginCoords(null);
-                  fetchSuggestions(e.target.value, setOriginSuggestions);
+                placeholder="Ej: Universidad, Centro..."
+                onPlaceSelect={(place) => {
+                  setOrigin(place.place_name.split(',')[0]);
+                  setOriginCoords(place.center);
                 }}
-                placeholder="Ej: Calle 60, Universidad..."
               />
-
-              {originSuggestions.length > 0 && (
-                <div className="absolute bg-white border rounded shadow w-full mt-1 z-10 max-h-48 overflow-y-auto">
-                  {originSuggestions.map((s) => (
-                    <div
-                      key={s.id}
-                      className="p-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => {
-                        setOrigin(s.place_name);
-                        // 🔥 GUARDAR COORDENADAS
-                        setOriginCoords(s.geometry.coordinates);
-                        setOriginSuggestions([]);
-                      }}
-                    >
-                      {s.place_name}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             {/* DESTINO */}
-            <div className="relative">
+            <div>
               <Label>Buscar lugar</Label>
-              <Input
+              <PlaceSearch 
                 value={destination}
-                onChange={(e) => {
-                  setDestination(e.target.value);
-                  // 🔥 Limpiar coordenadas si el usuario cambia el texto
-                  setDestCoords(null);
-                  fetchSuggestions(e.target.value, setDestSuggestions);
+                placeholder="Ej: Quinta, Multicentro..."
+                onPlaceSelect={(place) => {
+                  setDestination(place.place_name.split(',')[0]);
+                  setDestCoords(place.center);
                 }}
-                placeholder="Ej: Clínica Medicadiz..."
               />
-
-              {destSuggestions.length > 0 && (
-                <div className="absolute bg-white border rounded shadow w-full mt-1 z-10 max-h-48 overflow-y-auto">
-                  {destSuggestions.map((s) => (
-                    <div
-                      key={s.id}
-                      className="p-2 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => {
-                        setDestination(s.place_name);
-                        // 🔥 GUARDAR COORDENADAS
-                        setDestCoords(s.geometry.coordinates);
-                        setDestSuggestions([]);
-                      }}
-                    >
-                      {s.place_name}
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
 
             <Button className="w-full" size="lg" onClick={handleCalculate}>
