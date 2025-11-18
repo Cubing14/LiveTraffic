@@ -4,6 +4,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import BottomNav from "@/components/BottomNav";
+import TopHeader from "@/components/TopHeader";
+import PlaceSearch from "@/components/PlaceSearch";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { toast } from "sonner";
@@ -22,6 +24,7 @@ const Map = () => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const userMarker = useRef<mapboxgl.Marker | null>(null);
+  const searchMarker = useRef<mapboxgl.Marker | null>(null);
 
   // Coordenadas de Ibagué
   const IBAGUE_CENTER: [number, number] = [-75.2322, 4.4389];
@@ -50,7 +53,7 @@ const Map = () => {
 
     map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-    // TRAFICO EN TIEMPO REAL
+    // TRÁFICO EN TIEMPO REAL
     map.current.on("load", () => {
       try {
         map.current!.addSource("traffic", {
@@ -144,6 +147,40 @@ const Map = () => {
     );
   };
 
+  // MANEJAR SELECCIÓN DE LUGAR
+  const handlePlaceSelect = (place: any) => {
+    if (!map.current) return;
+
+    // Remover marcador anterior
+    if (searchMarker.current) searchMarker.current.remove();
+
+    // Crear nuevo marcador
+    const el = document.createElement("div");
+    el.style.width = "16px";
+    el.style.height = "16px";
+    el.style.borderRadius = "50%";
+    el.style.backgroundColor = "#ef4444";
+    el.style.border = "3px solid white";
+
+    searchMarker.current = new mapboxgl.Marker(el)
+      .setLngLat(place.center)
+      .setPopup(
+        new mapboxgl.Popup({ offset: 25 }).setHTML(
+          `<strong>${place.place_name}</strong>`
+        )
+      )
+      .addTo(map.current);
+
+    // Centrar mapa en el lugar
+    map.current.flyTo({ 
+      center: place.center, 
+      zoom: 16, 
+      duration: 1500 
+    });
+
+    toast.success(`Ubicación encontrada: ${place.place_name.split(',')[0]}`);
+  };
+
   // CARGAR MAPA AUTOMÁTICAMENTE
   useEffect(() => {
     if (mapboxToken) initializeMap();
@@ -151,15 +188,11 @@ const Map = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background pb-20">
-      {/* HEADER */}
-      <header className="bg-primary text-primary-foreground p-4 shadow-md">
-        <h1 className="text-2xl font-bold">LiveTraffic</h1>
-        <p className="text-sm opacity-90">Ibagué, a tu ritmo</p>
-      </header>
+    <div className="min-h-screen bg-background pb-20 pt-16">
+      <TopHeader />
 
       {/* MAPA */}
-      <div className="relative h-[calc(100vh-180px)]">
+      <div className="relative h-[calc(100vh-140px)]">
         <div ref={mapContainer} className="w-full h-full" />
 
         {/* BOTÓN UBICACIÓN */}
@@ -173,8 +206,13 @@ const Map = () => {
           </Button>
         )}
 
+        {/* BÚSQUEDA DE LUGARES */}
+        <div className="absolute top-4 left-4 right-4 z-10">
+          <PlaceSearch onPlaceSelect={handlePlaceSelect} />
+        </div>
+
         {/* INDICADORES SUPERIORES */}
-        <div className="absolute top-4 left-4 right-4 grid grid-cols-3 gap-2">
+        <div className="absolute top-20 left-4 right-4 grid grid-cols-3 gap-2">
           <Card className="p-2 text-center">
             <TrendingUp className="w-4 h-4 mx-auto text-success mb-1" />
             <p className="text-xs font-medium">Fluido</p>
