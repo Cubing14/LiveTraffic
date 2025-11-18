@@ -421,27 +421,37 @@ const Incidents = () => {
                         )}
                       </div>
                     </div>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex gap-1">
+                    <div className="flex flex-col gap-2">
+                      <div className="flex gap-2">
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleVote(incident.id, 'up')}
-                          className="text-green-600 hover:bg-green-50"
+                          className="text-green-600 hover:bg-green-50 focus:bg-green-50 focus:ring-2 focus:ring-green-200 transition-smooth"
+                          aria-label={`Votar positivo. Actualmente ${incident.upvotes || 0} votos positivos`}
                         >
-                          👍 {incident.upvotes || 0}
+                          <span aria-hidden="true">👍</span>
+                          <span className="ml-1 font-semibold">{incident.upvotes || 0}</span>
                         </Button>
                         <Button 
                           variant="ghost" 
                           size="sm"
                           onClick={() => handleVote(incident.id, 'down')}
-                          className="text-red-600 hover:bg-red-50"
+                          className="text-red-600 hover:bg-red-50 focus:bg-red-50 focus:ring-2 focus:ring-red-200 transition-smooth"
+                          aria-label={`Votar negativo. Actualmente ${incident.downvotes || 0} votos negativos`}
                         >
-                          👎 {incident.downvotes || 0}
+                          <span aria-hidden="true">👎</span>
+                          <span className="ml-1 font-semibold">{incident.downvotes || 0}</span>
                         </Button>
                       </div>
-                      <Button variant="ghost" size="sm">
-                        <MapPin className="h-4 w-4" />
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        className="hover:bg-blue-50 focus:bg-blue-50 focus:ring-2 focus:ring-blue-200"
+                        aria-label="Ver ubicación en el mapa"
+                      >
+                        <MapPin className="h-4 w-4" aria-hidden="true" />
+                        <span className="sr-only">Ver en mapa</span>
                       </Button>
                     </div>
                   </div>

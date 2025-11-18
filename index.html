@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="es">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
@@ -28,7 +28,10 @@
   </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root" role="application" aria-label="LiveTraffic - Aplicación de tráfico en tiempo real"></div>
     <script type="module" src="/src/main.tsx"></script>
+    
+    <!-- Texto alternativo para lectores de pantalla -->
+    <div id="sr-announcements" aria-live="polite" aria-atomic="true" class="sr-only"></div>
   </body>
 </html>
