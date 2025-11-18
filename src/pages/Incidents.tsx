@@ -342,16 +342,16 @@ const Incidents = () => {
           {incidents.map((incident) => {
             const IconComponent = getIncidentIcon(incident.type);
             return (
-              <Card key={incident.id} className={`border-l-4 ${
-                incident.impact === 'alto' ? 'border-l-red-500' :
-                incident.impact === 'medio' ? 'border-l-yellow-500' : 'border-l-blue-500'
-              } hover:shadow-md transition-shadow`}>
+              <Card key={incident.id} className={`border-l-4 hover:shadow-md transition-shadow ${
+                incident.impact === 'alto' ? 'border-l-red-500 color-safe-red' :
+                incident.impact === 'medio' ? 'border-l-yellow-500 color-safe-yellow' : 'border-l-blue-500 color-safe-blue'
+              }`}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-3">
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                        incident.impact === 'alto' ? 'bg-red-100' :
-                        incident.impact === 'medio' ? 'bg-yellow-100' : 'bg-blue-100'
+                        incident.impact === 'alto' ? 'bg-red-100 ring-2 ring-red-300' :
+                        incident.impact === 'medio' ? 'bg-yellow-100 ring-2 ring-yellow-300' : 'bg-blue-100 ring-2 ring-blue-300'
                       }`}>
                         <IconComponent className={`w-5 h-5 ${
                           incident.impact === 'alto' ? 'text-red-600' :
@@ -360,8 +360,19 @@ const Incidents = () => {
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold">{getTypeText(incident.type)}</h3>
-                          <Badge variant={getIncidentColor(incident.impact) as any} className="text-xs">
+                          <h3 className={`font-semibold ${
+                            incident.impact === 'alto' ? 'pattern-high' :
+                            incident.impact === 'medio' ? 'pattern-medium' : 'pattern-low'
+                          }`}>
+                            {getTypeText(incident.type)}
+                          </h3>
+                          <Badge 
+                            variant={getIncidentColor(incident.impact) as any} 
+                            className={`text-xs font-bold ${
+                              incident.impact === 'alto' ? 'bg-red-600 text-white' :
+                              incident.impact === 'medio' ? 'bg-yellow-600 text-white' : 'bg-blue-600 text-white'
+                            }`}
+                          >
                             {incident.impact.toUpperCase()}
                           </Badge>
                         </div>

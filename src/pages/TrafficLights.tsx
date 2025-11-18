@@ -151,38 +151,61 @@ const TrafficLights = () => {
               <CardContent>
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {/* Traffic Light Visual */}
-                    <div className="flex flex-col gap-1 bg-muted p-2 rounded-lg">
+                    {/* Traffic Light Visual - Accesible para daltonismo */}
+                    <div className="flex flex-col gap-1 bg-muted p-2 rounded-lg border-2 border-gray-400">
                       <div
-                        className={`w-6 h-6 rounded-full transition-all duration-300 ${
+                        className={`w-6 h-6 rounded-full transition-all duration-300 relative ${
                           light.status === "red"
-                            ? "bg-red-500 shadow-lg shadow-red-500/50 animate-pulse"
+                            ? "bg-red-500 shadow-lg shadow-red-500/50 animate-pulse ring-2 ring-red-300"
                             : "bg-gray-300"
                         }`}
-                      ></div>
+                        aria-label={light.status === "red" ? "Luz roja activa" : "Luz roja inactiva"}
+                      >
+                        {light.status === "red" && (
+                          <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
+                            ■
+                          </span>
+                        )}
+                      </div>
                       <div
-                        className={`w-6 h-6 rounded-full transition-all duration-300 ${
+                        className={`w-6 h-6 rounded-full transition-all duration-300 relative ${
                           light.status === "yellow"
-                            ? "bg-yellow-500 shadow-lg shadow-yellow-500/50 animate-pulse"
+                            ? "bg-yellow-500 shadow-lg shadow-yellow-500/50 animate-pulse ring-2 ring-yellow-300"
                             : "bg-gray-300"
                         }`}
-                      ></div>
+                        aria-label={light.status === "yellow" ? "Luz amarilla activa" : "Luz amarilla inactiva"}
+                      >
+                        {light.status === "yellow" && (
+                          <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
+                            ▲
+                          </span>
+                        )}
+                      </div>
                       <div
-                        className={`w-6 h-6 rounded-full transition-all duration-300 ${
+                        className={`w-6 h-6 rounded-full transition-all duration-300 relative ${
                           light.status === "green"
-                            ? "bg-green-500 shadow-lg shadow-green-500/50 animate-pulse"
+                            ? "bg-green-500 shadow-lg shadow-green-500/50 animate-pulse ring-2 ring-green-300"
                             : "bg-gray-300"
                         }`}
-                      ></div>
+                        aria-label={light.status === "green" ? "Luz verde activa" : "Luz verde inactiva"}
+                      >
+                        {light.status === "green" && (
+                          <span className="absolute inset-0 flex items-center justify-center text-white text-xs font-bold">
+                            ●
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    {/* Status Info */}
+                    {/* Status Info - Con iconos para daltonismo */}
                     <div>
-                      <p className="font-semibold">
-                        {getStatusText(light.status)}
+                      <p className="font-semibold flex items-center gap-2">
+                        {light.status === 'red' && <span className="text-red-600">🛑 ALTO</span>}
+                        {light.status === 'yellow' && <span className="text-yellow-600">⚠️ PRECAUCIÓN</span>}
+                        {light.status === 'green' && <span className="text-green-600">✅ SIGA</span>}
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        {light.timeRemaining} seg restantes
+                      <p className="text-sm text-muted-foreground font-mono">
+                        ⏱️ {light.timeRemaining} seg restantes
                       </p>
                     </div>
                   </div>
