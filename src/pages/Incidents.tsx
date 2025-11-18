@@ -112,8 +112,8 @@ const Incidents = () => {
         reports: incident.reports || 1,
         reportedBy: incident.reported_by,
         reportedByEmail: incident.reported_by_email,
-        upvotes: incident.upvotes || 0,
-        downvotes: incident.downvotes || 0,
+        upvotes: incident.upvotes ?? 0,
+        downvotes: incident.downvotes ?? 0,
         userReports: [{
           userName: incident.reported_by,
           userEmail: incident.reported_by_email,
@@ -274,20 +274,35 @@ const Incidents = () => {
       const upvotes = votes?.filter(v => v.vote_type === 'up').length || 0;
       const downvotes = votes?.filter(v => v.vote_type === 'down').length || 0;
       
-      // Actualizar contadores
-      const { error: updateError } = await supabase
-        .from('incidents')
-        .update({ upvotes, downvotes })
-        .eq('id', incidentId);
-      
-      if (updateError) throw updateError;
-      
-      // Actualizar estado local inmediatamente
-      setIncidents(prev => prev.map(incident => 
-        incident.id === incidentId 
-          ? { ...incident, upvotes, downvotes }
-          : incident
-      ));
+      // Si tiene 3 o más dislikes, marcar como resuelto
+      if (downvotes >= 3) {
+        const { error: deleteError } = await supabase
+          .from('incidents')
+          .update({ status: 'resuelto' })
+          .eq('id', incidentId);
+        
+        if (deleteError) throw deleteError;
+        
+        // Remover del estado local
+        setIncidents(prev => prev.filter(incident => incident.id !== incidentId));
+        
+        alert('🗑️ Incidente eliminado por exceso de reportes negativos');
+      } else {
+        // Actualizar contadores normalmente
+        const { error: updateError } = await supabase
+          .from('incidents')
+          .update({ upvotes, downvotes })
+          .eq('id', incidentId);
+        
+        if (updateError) throw updateError;
+        
+        // Actualizar estado local
+        setIncidents(prev => prev.map(incident => 
+          incident.id === incidentId 
+            ? { ...incident, upvotes, downvotes }
+            : incident
+        ));
+      }
       
     } catch (error) {
       console.error('Error voting:', error);
