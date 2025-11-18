@@ -148,11 +148,11 @@ const Profile = () => {
                       try {
                         // Subir imagen a Supabase Storage
                         const fileExt = file.name.split('.').pop();
-                        const fileName = `${user?.id}.${fileExt}`;
+                        const fileName = `avatar-${user?.id}-${Date.now()}.${fileExt}`;
                         
                         const { error: uploadError } = await supabase.storage
                           .from('avatars')
-                          .upload(fileName, file, { upsert: true });
+                          .upload(fileName, file);
                         
                         if (uploadError) throw uploadError;
                         
